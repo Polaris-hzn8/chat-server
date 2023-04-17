@@ -8,10 +8,11 @@
 #include "head.h"
 #include "wechat.h"
 
+//线程处理函数
 void *sub_reactor(void *arg) {
-	int subefd = *(int *)arg;
+	int subfd = *(int *)arg;
 	while (1) {
-		DBG(L_RED"<Sub Reactor>"NONE" : in sub reactor %d.\n", subefd);
+		DBG(L_RED"<Sub Reactor>"NONE" : in sub reactor %d.\n", subfd);
 		sleep(3000);
 	}
 }
