@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     if ((server_listen = socket_create(port)) < 0)handle_error("socket_create");
     DBG(YELLOW"<D>"NONE" : server_listen is listening on port %d.\n", port);
 
-    //4.创建主反应堆 从反应堆
+    //4.创建主反应堆 与 从反应堆
     int epollfd, subefd1, subefd2;
     if (epollfd = epoll_create(1) < 0) handle_error("epollfd_create");
     if (subefd1 = epoll_create(1) < 0) handle_error("subefd1_create");
