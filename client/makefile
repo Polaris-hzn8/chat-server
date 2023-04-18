@@ -2,9 +2,9 @@ GCC ?= gcc
 CCMODE = PROGRAM
 INCLUDES =  -I ../common
 CFLAGS =  -Wall $(MACRO)
-TARGET = server
+TARGET = client
 SRCS := $(wildcard *.c ../common/*.c)  
-LIBS = -lpthread -D _D # 需要引用的库
+LIBS = -D _D # 需要引用的库
 
 ifeq ($(CCMODE),PROGRAM)
 $(TARGET): $(LINKS) $(SRCS) 
@@ -14,8 +14,3 @@ $(TARGET): $(LINKS) $(SRCS)
 clean:
 	rm -rf $(TARGET)
 endif
-
- 
- 
-
-

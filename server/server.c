@@ -7,11 +7,14 @@
 
 #include "head.h"
 #include "common.h"
+#include "thread_pool.h"
 #include "wechat.h"
 
 #define MAXEVENTS 5
+#define MAXUSERS 1024
 
 const char *config = "./wechatd.conf";
+struct wechat_user *users;
 
 #define handle_error(msg) \
 	do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -48,9 +51,11 @@ int main(int argc, char *argv[]) {
     DBG(YELLOW"<D>"NONE" : config file read success.\n");
 
     //3.创建socket连接
-    int server_listen, sockfd;
+    int server_listen;
     if ((server_listen = socket_create(port)) < 0)handle_error("socket_create");
     DBG(YELLOW"<D>"NONE" : server_listen is listening on port %d.\n", port);
+
+    users = (struct wechat_user*)calloc(MAXUSERS, sizeof(struct wechat_user));
 
     //4.创建主反应堆 与 从反应堆
     int epollfd, subefd1, subefd2;
@@ -92,30 +97,64 @@ int main(int argc, char *argv[]) {
 				// 6-3-2将accept到的文件描述符注册到epoll实例中，实现文件监听
 				if ((sockfd = accept(server_listen, NULL, NULL)) < 0) handle_error("accept");
 				//如果是实际应用情况，如果出现错误应该想办法处理错误，并恢复实际业务
-				clients[sockfd] = sockfd;//文件描述符作为数组下标 存储新出现的conn_socket文件描述符
+				//clients[sockfd] = sockfd;//文件描述符作为数组下标 存储新出现的conn_socket文件描述符
 				ev.data.fd = sockfd;
-				ev.events = EPOLLIN | EPOLLET;//设置为边缘触发模式
+				ev.events = EPOLLIN;//设置为边缘触发模式
 				make_nonblock(sockfd);
 				if (epoll_ctl(epollfd, EPOLL_CTL_ADD, sockfd, &ev) < 0) handle_error("epoll_ctl");//注册操作
 			} else {
 				/* 返回的fd不是server_listen可读 是普通的套接字 */
+                /* 接收用户发来的数据 验证 以及操作 */
 				// 6-3-3 将监测到事件event的文件描述符fd加入任务队列中，交给线程池处理
-				if (events[i].events & EPOLLIN) {
-					/* 套接字属于就绪状态 有数据输入需要执行 */
-					task_queue_push(taskQueue, (void *)&clients[fd]);
-					//不可直接将fd传入 需要保证传入的fd值总是不同，创建clients[]数组保证每次传入的fd值不同
-					//当把地址作为参数传递给函数后（特别是在循环中），下一次fd的值会不断的被修改（传入的值是会变化的）
-				} else {
-					/* 套接字不属于就绪状态出错 将该事件的文件描述符从注册的epoll实例中删除 */
-					epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL);
-					close(fd);
-				}
+                struct wechat_msg msg;
+                bzero(&msg, sizeof(msg));
+                int ret = recv(fd, (void *)&msg, sizeof(msg), 0);
+                if ( ret < 0) {
+                    /* 客户端关闭了或文件出问题了 */
+                    epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL);
+                    close(fd);
+                    continue;
+                }
+                if (ret != sizeof(msg)) {
+                    /* 文件接收到的大小有问题 */
+                    DBG(RED"<MsgErr>"NONE" : msg size err!\n");
+                    continue;
+                }
+
+                if (msg.type & WECHAT_SIGNUP) {
+                    /* 用户注册 更新用户信息到文件中 判断是否可以注册 */
+                    msg.type = WECHAT_ACK;
+                    send(fd, (void *)&msg, sizeof(msg), 0);
+                } else if (msg.type & WECHAT_SIGNIN) {
+                    /* 用户登录 判断密码是否正确 验证用户是否重复登录 */
+                    /* 将该成功登录的用户fd文件描述符 加入到从反应堆中 */
+                    msg.type = WECHAT_ACK;
+                    send(fd, (void *)&msg, sizeof(msg), 0);
+                    strcpy(users[fd].name, msg.from);
+                    users[fd].isOnline = 1;
+                    users[fd].sex = msg.sex;
+                    users[fd].fd = fd;
+
+                    /* 利用负载均衡算法 决定将任务交给哪个从反应堆处理（注册到哪个反应堆的epoll实例中） */
+                    int which = msg.sex ? subefd1 : subefd2;
+                    add_to_subreactor(which, fd);
+                } else {
+                    /* 报文数据有误 */
+                }
+
+				// if (events[i].events & EPOLLIN) {
+				// 	/* 套接字属于就绪状态 有数据输入需要执行 */
+				// 	task_queue_push(taskQueue, (void *)&clients[fd]);
+				// 	//不可直接将fd传入 需要保证传入的fd值总是不同，创建clients[]数组保证每次传入的fd值不同
+				// 	//当把地址作为参数传递给函数后（特别是在循环中），下一次fd的值会不断的被修改（传入的值是会变化的）
+				// } else {
+				// 	/* 套接字不属于就绪状态出错 将该事件的文件描述符从注册的epoll实例中删除 */
+				// 	epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL);
+				// 	close(fd);
+				// }
 			}
 		}//for
 	}//for
-
-
-    usleep(100000);
     return 0;
 }
 
