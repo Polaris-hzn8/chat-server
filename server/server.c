@@ -5,16 +5,14 @@
 	> Created Time: Mon 03 Apr 2023 04:40:15 PM CST
  ************************************************************************/
 
-#include "../common/head.h"
-#include "../common/common.h"
-#include "../common/thread_pool.h"
-#include "../common/wechat.h"
-
-#define MAXEVENTS 5
-#define MAXUSERS 1024
+#include "include/head.h"
+#include "include/socket.h"
+#include "include/read.h"
+#include "include/info.h"
+#include "include/sub_reactor.h"
+#include "include/thread_pool.h"
 
 const char *config = "./wechatd.conf";
-struct wechat_user *users;
 
 #define handle_error(msg) \
 	do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -34,7 +32,7 @@ int main(int argc, char *argv[]) {
     }
     //1.判断config文件是否存在
     if (access(config, R_OK)) {
-        fprintf(stderr, RED"<Error>"NONE" config file don't exist!\n");
+        fprintf(stderr, RED"<Config file Error>"NONE" config file don't exist!\n");
         exit(1);
     }
 
@@ -42,7 +40,7 @@ int main(int argc, char *argv[]) {
     if (!port) {
         char *info;
         if ((info = get_conf_value(config, "PORT")) == NULL) {
-            fprintf(stderr, RED"<Error>"NONE" this setting info is not set in the config file!\n");
+            fprintf(stderr, RED"<Config file Error>"NONE" this setting info is not set in the config file!\n");
             exit(1);
         }
         port = atoi(info);
@@ -77,7 +75,7 @@ int main(int argc, char *argv[]) {
 	//if ((epollfd = epoll_create(1)) < 0) handle_error("epoll_create");//文件描述符被占用完就可能会出错
 
     // 6-2 epoll_ctl将server_listen文件描述符注册到epoll实例中
-	struct epoll_event events[MAXEVENTS], ev;
+	struct epoll_event events[M_MAXEVENTS], ev;
 	ev.data.fd = server_listen;//关注的文件描述符
 	ev.events = EPOLLIN;//关注的事件、需要注册的事件
 	if (epoll_ctl(epollfd1, EPOLL_CTL_ADD, server_listen, &ev) < 0) handle_error("epoll_ctl");//注册操作
@@ -85,7 +83,7 @@ int main(int argc, char *argv[]) {
 	
 	for (;;) {
 		// 6-3 epoll_wait开始监听
-		int nfds = epoll_wait(epollfd1, events, MAXEVENTS, -1);//nfds epoll检测到事件发生的个数
+		int nfds = epoll_wait(epollfd1, events, M_MAXEVENTS, -1);//nfds epoll检测到事件发生的个数
 		if (nfds == -1) handle_error("epoll_wait");//可能被时钟中断 or 其他问题
 
 		for (int i = 0; i < nfds; ++i) {
@@ -116,26 +114,27 @@ int main(int argc, char *argv[]) {
                 if ( ret <= 0) {
                     /* 客户端关闭了或文件出问题了 就关闭对应的文件描述符（包括建立连接用的 server_listen 与 普通 fd） */
                     /* 用户登出 并关闭为其服务的文件描述符fd */
+                    DBG(RED"<Master Reactor>"NONE" : connection of %d on %d is closed.\n", fd, epollfd1);
                     epoll_ctl(epollfd1, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
                     continue;
                 }
                 if (ret != sizeof(msg)) {
                     /* 文件接收到的大小有问题 */
-                    DBG(RED"<MsgErr>"NONE" : msg size err! ret:%d sizeof(msg):%d\n", ret, sizeof(msg));
+                    DBG(RED"<Master Reactor>"NONE" : msg size err! ret:%d sizeof(msg):%d\n", ret, sizeof(msg));
                     continue;
                 }
 
                 //（3）根据用户发送的信息进行对应的逻辑处理
                 if (msg.type & WECHAT_SIGNUP) {
                     /* （3-1）用户选择注册 更新用户信息到文件中 判断是否可以注册 */
-                    DBG(RED"<Server>"NONE" : a user choose to sign up\n");
+                    DBG(RED"<Master Reactor>"NONE" : a user choose to sign up\n");
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                 } else if (msg.type & WECHAT_SIGNIN) {
                     /* （3-2）用户选择登录 判断密码是否正确 验证用户是否重复登录 */
                     /* 将该成功登录的用户fd文件描述符 加入到从反应堆中 登录后的逻辑交给从反应堆处理 */
-                    DBG(RED"<Server>"NONE" : a user choose to sign in\n");
+                    DBG(RED"<Master Reactor>"NONE" : a user choose to sign in\n");
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                     strcpy(users[fd].name, msg.from);
@@ -150,16 +149,6 @@ int main(int argc, char *argv[]) {
                     /* （3-3）报文数据有误 */
                 }
 
-				// if (events[i].events & EPOLLIN) {
-				// 	/* 套接字属于就绪状态 有数据输入需要执行 */
-				// 	task_queue_push(taskQueue, (void *)&clients[fd]);
-				// 	//不可直接将fd传入 需要保证传入的fd值总是不同，创建clients[]数组保证每次传入的fd值不同
-				// 	//当把地址作为参数传递给函数后（特别是在循环中），下一次fd的值会不断的被修改（传入的值是会变化的）
-				// } else {
-				// 	/* 套接字不属于就绪状态出错 将该事件的文件描述符从注册的epoll实例中删除 */
-				// 	epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL);
-				// 	close(fd);
-				// }
 			}
 		}//for
 	}//for

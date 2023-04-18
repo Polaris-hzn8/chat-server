@@ -1,12 +1,12 @@
 /*************************************************************************
-	> File Name: wechat.h
+	> File Name: info.h
 	> Author: luochenhao
 	> Mail: 3453851623@qq.com
-	> Created Time: Sat 08 Apr 2023 11:40:32 PM CST
+	> Created Time: Tue 18 Apr 2023 04:21:46 PM CST
  ************************************************************************/
 
-#ifndef _WECHAT_H
-#define _WECHAT_H
+#ifndef _INFO_H
+#define _INFO_H
 
 /* 比特掩码 */
 #define WECHAT_ACK 0x01
@@ -21,6 +21,10 @@
 #define WECHAT_SYS 0x80//系统消息
 #define WECHAT_WALL 0x100//广播消息
 #define WECHAT_MSG 0x200//私发消息
+
+#define M_MAXEVENTS 5
+#define S_MAXEVENTS 5
+#define MAXUSERS 1024
 
 struct wechat_user {
 	char name[50];//用户名
@@ -38,9 +42,6 @@ struct wechat_msg {
 	int sex;
 };
 
-int add_to_subreactor(int epollfd, int fd);
-
-void *sub_reactor(void *arg);
-void *client_recv(void *arg);
+struct wechat_user *users;
 
 #endif

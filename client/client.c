@@ -5,9 +5,11 @@
 	> Created Time: Mon 17 Apr 2023 09:52:32 PM CST
  ************************************************************************/
 
-#include "../common/head.h"
-#include "../common/common.h"
-#include "../common/wechat.h"
+#include "include/head.h"
+#include "include/socket.h"
+#include "include/info.h"
+#include "include/read.h"
+#include "include/imfunc.h"
 
 const char *config = "./wechat.conf";
 
@@ -98,7 +100,7 @@ int main(int argc, char **argv) {
 	struct wechat_msg msg;
 	bzero(&msg, sizeof(msg));
 
-	//4.尝试登录或注册验证
+	//4.将注册与登录信息发送给客户端
 	strcpy(msg.from, name);
 	msg.sex = sex;
 	if (mode == 0) {
@@ -110,7 +112,7 @@ int main(int argc, char **argv) {
 	}
 	send(sockfd, (void *)&msg, sizeof(msg), 0);
 
-	//5.利用select处理客户端发送登录or注册请求 而服务端无响应的情况
+	//5.利用select处理客户端发送登录or注册请求 等待2秒看服务端是否有回复
 	//5-1 发送的登录或注册消息在2秒内没有得到服务器响应
 	fd_set rfds;
 	FD_ZERO(&rfds);
@@ -123,11 +125,11 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	//5-2 发送的登录或注册消息在2秒内得到了服务器响应 select返回值大于0 一定处于就绪可读
+	//5-2 发送的登录或注册消息在2秒内得到了服务器响应 select返回值大于0得到了响应 开始接受服务端发送的消息
 	bzero(&msg, sizeof(msg));
 	int ret = recv(sockfd, (void *)&msg, sizeof(msg), 0);
 	if (ret <= 0) {
-		/* 服务端关闭ret == 0 ; recv出错 ret < 0 */
+		/* 服务端关闭 ret == 0 ; recv出错 ret < 0 */
 		fprintf(stderr, RED"<Err>"NONE" : server loss connection.\n");
 		exit(1);
 	}
@@ -161,6 +163,7 @@ int main(int argc, char **argv) {
 		else {
 			bzero(&msg, sizeof(msg));
 			msg.type = WECHAT_WALL;
+			strcpy(msg.from, name);
 			strcpy(msg.msg, buff);
 			send(sockfd, (void *)&msg, sizeof(msg), 0);
 		}

@@ -5,8 +5,8 @@
 	> Created Time: Tue 28 Mar 2023 04:18:13 PM CST
  ************************************************************************/
 
-#include "head.h"
-#include "thread_pool.h"
+#include "include/head.h"
+#include "include/thread_pool.h"
 
 void task_queue_init(struct task_queue *taskQueue, int size) {
 	taskQueue->size = size;

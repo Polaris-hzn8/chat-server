@@ -2,8 +2,8 @@ GCC ?= gcc
 CCMODE = PROGRAM
 INCLUDES =  -I ../common
 CFLAGS =  -Wall $(MACRO)
-TARGET = server
-SRCS := $(wildcard *.c ../common/*.c)  
+TARGET = server.out
+SRCS := $(wildcard *.c)  
 LIBS = -lpthread -D _D # 需要引用的库
 
 ifeq ($(CCMODE),PROGRAM)

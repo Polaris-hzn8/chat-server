@@ -1,10 +1,10 @@
 GCC ?= gcc
 CCMODE = PROGRAM
-INCLUDES =  -I ../common
+INCLUDES =  -I include
 CFLAGS =  -Wall $(MACRO)
-TARGET = client
-SRCS := $(wildcard *.c ../common/*.c)  
-LIBS = -lpthread -D _D # 需要引用的库
+TARGET = client.out
+SRCS := $(wildcard *.c)  
+LIBS = -lpthread -lncurses -D _D # 需要引用的库
 
 ifeq ($(CCMODE),PROGRAM)
 $(TARGET): $(LINKS) $(SRCS) 
