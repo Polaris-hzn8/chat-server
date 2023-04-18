@@ -5,10 +5,10 @@
 	> Created Time: Mon 03 Apr 2023 04:40:15 PM CST
  ************************************************************************/
 
-#include "head.h"
-#include "common.h"
-#include "thread_pool.h"
-#include "wechat.h"
+#include "../common/head.h"
+#include "../common/common.h"
+#include "../common/thread_pool.h"
+#include "../common/wechat.h"
 
 #define MAXEVENTS 5
 #define MAXUSERS 1024
@@ -58,16 +58,16 @@ int main(int argc, char *argv[]) {
     users = (struct wechat_user*)calloc(MAXUSERS, sizeof(struct wechat_user));
 
     //4.创建主反应堆 与 从反应堆
-    int epollfd, subefd1, subefd2;
-    if ((epollfd = epoll_create(1)) < 0) handle_error("epollfd_create");//主反应堆
-    if ((subefd1 = epoll_create(1)) < 0) handle_error("subefd1_create");//从反应堆1
-    if ((subefd2 = epoll_create(1)) < 0) handle_error("subefd2_create");//从反应堆2
+    int epollfd1, epollfd2, epollfd3;
+    if ((epollfd1 = epoll_create(1)) < 0) handle_error("epollfd_create");//主反应堆
+    if ((epollfd2 = epoll_create(1)) < 0) handle_error("subefd1_create");//从反应堆1
+    if ((epollfd3 = epoll_create(1)) < 0) handle_error("subefd2_create");//从反应堆2
     DBG(YELLOW"<D>"NONE" : Main reactor and two sub reactors created.\n");
 
     //5.为从反应堆创建线程
-    pthread_t tid1, tid2;
-    pthread_create(&tid1, NULL, sub_reactor, (void *)&subefd1);//从反应堆1的线程
-    pthread_create(&tid2, NULL, sub_reactor, (void *)&subefd2);//从反应堆2的线程
+    pthread_t tid2, tid3;
+    pthread_create(&tid2, NULL, sub_reactor, (void *)&epollfd2);//从反应堆1的线程
+    pthread_create(&tid3, NULL, sub_reactor, (void *)&epollfd3);//从反应堆2的线程
     DBG(YELLOW"<D>"NONE" : Two sub reactor threads created.\n");
     
     
@@ -80,12 +80,12 @@ int main(int argc, char *argv[]) {
 	struct epoll_event events[MAXEVENTS], ev;
 	ev.data.fd = server_listen;//关注的文件描述符
 	ev.events = EPOLLIN;//关注的事件、需要注册的事件
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, server_listen, &ev) < 0) handle_error("epoll_ctl");//注册操作
+	if (epoll_ctl(epollfd1, EPOLL_CTL_ADD, server_listen, &ev) < 0) handle_error("epoll_ctl");//注册操作
 	DBG(YELLOW"<D> : server_listen is added to epollfd successfully.\n"NONE);
 	
 	for (;;) {
 		// 6-3 epoll_wait开始监听
-		int nfds = epoll_wait(epollfd, events, MAXEVENTS, -1);//nfds epoll检测到事件发生的个数
+		int nfds = epoll_wait(epollfd1, events, MAXEVENTS, -1);//nfds epoll检测到事件发生的个数
 		if (nfds == -1) handle_error("epoll_wait");//可能被时钟中断 or 其他问题
 
 		for (int i = 0; i < nfds; ++i) {
@@ -101,33 +101,41 @@ int main(int argc, char *argv[]) {
 				ev.data.fd = sockfd;
 				ev.events = EPOLLIN;//设置为边缘触发模式
 				make_nonblock(sockfd);
-				if (epoll_ctl(epollfd, EPOLL_CTL_ADD, sockfd, &ev) < 0) handle_error("epoll_ctl");//注册操作
+				if (epoll_ctl(epollfd1, EPOLL_CTL_ADD, sockfd, &ev) < 0) handle_error("epoll_ctl");
 			} else {
-				/* 返回的fd不是server_listen可读 是普通的套接字 */
+				/* 返回的fd不是server_listen且可读 */
                 /* 接收用户发来的数据 验证 以及操作 */
-				// 6-3-3 将监测到事件event的文件描述符fd加入任务队列中，交给线程池处理
+				// 6-3-3 对监测到事件event的文件描述符fd进行操作，具体业务逻辑交给从反应堆处理，主反应堆只负责登录注册与登出业务
+                /* 聊天系统主反应堆逻辑： */
+                //（1）将用户发送的数据进行接收
                 struct wechat_msg msg;
                 bzero(&msg, sizeof(msg));
                 int ret = recv(fd, (void *)&msg, sizeof(msg), 0);
-                if ( ret < 0) {
-                    /* 客户端关闭了或文件出问题了 */
-                    epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL);
+                
+                //（2）如果客户端关闭 或文件传输出现问题 就关闭对应的文件描述符
+                if ( ret <= 0) {
+                    /* 客户端关闭了或文件出问题了 就关闭对应的文件描述符（包括建立连接用的 server_listen 与 普通 fd） */
+                    /* 用户登出 并关闭为其服务的文件描述符fd */
+                    epoll_ctl(epollfd1, EPOLL_CTL_DEL, fd, NULL);
                     close(fd);
                     continue;
                 }
                 if (ret != sizeof(msg)) {
                     /* 文件接收到的大小有问题 */
-                    DBG(RED"<MsgErr>"NONE" : msg size err!\n");
+                    DBG(RED"<MsgErr>"NONE" : msg size err! ret:%d sizeof(msg):%d\n", ret, sizeof(msg));
                     continue;
                 }
 
+                //（3）根据用户发送的信息进行对应的逻辑处理
                 if (msg.type & WECHAT_SIGNUP) {
-                    /* 用户注册 更新用户信息到文件中 判断是否可以注册 */
+                    /* （3-1）用户选择注册 更新用户信息到文件中 判断是否可以注册 */
+                    DBG(RED"<Server>"NONE" : a user choose to sign up\n");
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                 } else if (msg.type & WECHAT_SIGNIN) {
-                    /* 用户登录 判断密码是否正确 验证用户是否重复登录 */
-                    /* 将该成功登录的用户fd文件描述符 加入到从反应堆中 */
+                    /* （3-2）用户选择登录 判断密码是否正确 验证用户是否重复登录 */
+                    /* 将该成功登录的用户fd文件描述符 加入到从反应堆中 登录后的逻辑交给从反应堆处理 */
+                    DBG(RED"<Server>"NONE" : a user choose to sign in\n");
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                     strcpy(users[fd].name, msg.from);
@@ -136,10 +144,10 @@ int main(int argc, char *argv[]) {
                     users[fd].fd = fd;
 
                     /* 利用负载均衡算法 决定将任务交给哪个从反应堆处理（注册到哪个反应堆的epoll实例中） */
-                    int which = msg.sex ? subefd1 : subefd2;
-                    add_to_subreactor(which, fd);
+                    int whichsub = msg.sex ? epollfd2 : epollfd3;
+                    add_to_subreactor(whichsub, fd);
                 } else {
-                    /* 报文数据有误 */
+                    /* （3-3）报文数据有误 */
                 }
 
 				// if (events[i].events & EPOLLIN) {

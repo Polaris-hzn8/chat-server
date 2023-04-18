@@ -5,9 +5,9 @@
 	> Created Time: Mon 17 Apr 2023 09:52:32 PM CST
  ************************************************************************/
 
-#include "head.h"
-#include "common.h"
-#include "wechat.h"
+#include "../common/head.h"
+#include "../common/common.h"
+#include "../common/wechat.h"
 
 const char *config = "./wechat.conf";
 
@@ -94,9 +94,11 @@ int main(int argc, char **argv) {
 	if ((sockfd = socket_connect(server_ip, server_port)) < 0) handle_error("socket_connect");
 	DBG(YELLOW"<D>"NONE" : connect to server %s:%d <%d>success.\n", server_ip, server_port, sockfd);
 
-	//4.进入登录或注册验证
+
 	struct wechat_msg msg;
 	bzero(&msg, sizeof(msg));
+
+	//4.尝试登录或注册验证
 	strcpy(msg.from, name);
 	msg.sex = sex;
 	if (mode == 0) {
@@ -107,6 +109,62 @@ int main(int argc, char **argv) {
 		msg.type = WECHAT_SIGNIN;
 	}
 	send(sockfd, (void *)&msg, sizeof(msg), 0);
+
+	//5.利用select处理客户端发送登录or注册请求 而服务端无响应的情况
+	//5-1 发送的登录或注册消息在2秒内没有得到服务器响应
+	fd_set rfds;
+	FD_ZERO(&rfds);
+	FD_SET(sockfd, &rfds);
+	struct timeval tv;
+	tv.tv_sec = 2;
+	tv.tv_usec = 0;
+	if (select(sockfd + 1, &rfds, NULL, NULL, &tv) <= 0) {
+		fprintf(stderr, RED"<Err>"NONE" : Server no response.\n");
+		exit(1);
+	}
+
+	//5-2 发送的登录或注册消息在2秒内得到了服务器响应 select返回值大于0 一定处于就绪可读
+	bzero(&msg, sizeof(msg));
+	int ret = recv(sockfd, (void *)&msg, sizeof(msg), 0);
+	if (ret <= 0) {
+		/* 服务端关闭ret == 0 ; recv出错 ret < 0 */
+		fprintf(stderr, RED"<Err>"NONE" : server loss connection.\n");
+		exit(1);
+	}
+	if (msg.type & WECHAT_ACK) {
+		/* msg.type == WECHAT_ACK */
+		DBG(GREEN"<Success>"NONE" : server return a success.\n");
+		if (!mode) {
+			/* 进入注册逻辑 */
+			printf(GREEN"please login after this.\n"NONE);
+			exit(0);
+		}
+	} else {
+		/* msg.type == WECHAT_FIN */
+		DBG(RED"<Failure>"NONE" : server return a failure.\n");
+		close(sockfd);
+		exit(1);
+	}
+
+	//6.进入聊天室的主逻辑：接收消息 与 发送消息
+	/* 有必要将接受消息 与 发送消息的逻辑分离 否则在输入消息的过程中就会被接受到的消息打断 */
+	/* 创建另外一个线程用于循环接收消息 一旦接受到消息就打印输出在屏幕上 */
+	/* 主级进程用于发送消息 */
+	pthread_t tid;
+	pthread_create(&tid, NULL, client_recv, (void *)&sockfd);
+
+	while (1) {
+		printf("Please input your content:\n");
+		char buff[1024] = {0};
+		scanf("%[^\n]", buff); getchar();
+		if (!strlen(buff)) continue;
+		else {
+			bzero(&msg, sizeof(msg));
+			msg.type = WECHAT_WALL;
+			strcpy(msg.msg, buff);
+			send(sockfd, (void *)&msg, sizeof(msg), 0);
+		}
+	}
 
 	return 0;
 }
