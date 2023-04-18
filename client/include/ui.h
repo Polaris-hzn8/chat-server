@@ -15,6 +15,8 @@
 #define MSG_HEIGHT 20
 #define INFO_WIDTH 10
 
+WINDOW *msg_win, *sub_msg_win, *info_win, *sub_info_win, *input_win, *sub_input_win;
+
 void init_ui();
 void gotoxy_puts(int x, int y, char* s);//走到xy位置放置1个字符串
 void gotoxy_putc(int x, int y, char c);//走到xy位置放置1个字符

@@ -6,9 +6,9 @@
  ************************************************************************/
 
 #include "include/head.h"
+#include "include/info.h"
 #include "include/ui.h"
 
-extern WINDOW *msg_win, *sub_msg_win, *info_win, *sub_info_win, *input_win, *sub_input_win;
 int msgcnt = 0;
 
 WINDOW *create_newwin(int width, int height, int startx, int starty) {
@@ -52,8 +52,6 @@ void w_gotoxy_puts(WINDOW *win, int x, int y, char* s) {
     move(LINES - 1, COLS - 1);
     wrefresh(win);
 }
-
-
 
 
 void init_ui(){
@@ -100,8 +98,7 @@ void init_ui(){
 
 }
 
-
-void show_msg(struct ChatMsg *msg) {
+void show_msg(struct wechat_msg *msg) {
     time_t time_now = time(NULL);
     struct tm *tm = localtime(&time_now);
     char timestr[10] = {0};
@@ -110,14 +107,16 @@ void show_msg(struct ChatMsg *msg) {
         scroll(sub_msg_win);
         msgcnt = MSG_HEIGHT - 3;
     }
+    
     w_gotoxy_puts(sub_msg_win, 0, msgcnt, timestr);
-    if (msg->type & CHAT_SYS) {
+    if (msg->type & WECHAT_SYS) {
         bzero(msg->from, sizeof(msg->from));
         strcpy(msg->from, "SysInfo");
         wattron(sub_msg_win, COLOR_PAIR(1));
     } else {
         wattron(sub_msg_win, COLOR_PAIR(4));
     }
+    
     w_gotoxy_puts(sub_msg_win, 9, msgcnt, msg->from);
     //消除颜色
     wattron(sub_msg_win, COLOR_PAIR(7));

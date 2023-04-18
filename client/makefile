@@ -4,7 +4,7 @@ INCLUDES =  -I include
 CFLAGS =  -Wall $(MACRO)
 TARGET = client.out
 SRCS := $(wildcard *.c)  
-LIBS = -lpthread -lncurses -D _D # 需要引用的库
+LIBS = -lpthread -lncurses -D _D -D UI -lncurses # 需要引用的库
 
 ifeq ($(CCMODE),PROGRAM)
 $(TARGET): $(LINKS) $(SRCS) 

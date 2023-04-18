@@ -10,6 +10,7 @@
 #include "include/info.h"
 #include "include/read.h"
 #include "include/imfunc.h"
+#include "ui.h"
 
 const char *config = "./wechat.conf";
 
