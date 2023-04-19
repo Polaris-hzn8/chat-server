@@ -5,6 +5,7 @@
 	> Created Time: Tue 18 Apr 2023 04:48:31 PM CST
  ************************************************************************/
 
+#include "include/head.h"
 #include "include/imfunc.h"
 #include "include/color.h"
 #include "include/info.h"
@@ -16,11 +17,11 @@ void *client_recv(void *arg) {
 	while (1) {
 		bzero(&msg, sizeof(msg));
 		int ret = recv(sockfd, &msg, sizeof(msg), 0);
-		if (ret < 0) {
+		if (ret <= 0) {
 			DBG(L_CYAN"<Client>"NONE" : server closed the connection.\n");
 			exit(1);
 		}
-		printf("%s : %s\n", msg.from, msg.msg);
+		printf("%s : %s\n", msg.from, msg.content);
 	}
 }
 

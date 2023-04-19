@@ -38,7 +38,7 @@ struct wechat_msg {
 	int type;
 	char from[50];
 	char to[50];
-	char msg[1024];
+	char content[1024];
 	int sex;
 };
 

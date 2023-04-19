@@ -10,7 +10,6 @@
 #include "include/info.h"
 #include "include/read.h"
 #include "include/imfunc.h"
-#include "ui.h"
 
 const char *config = "./wechat.conf";
 
@@ -97,7 +96,6 @@ int main(int argc, char **argv) {
 	if ((sockfd = socket_connect(server_ip, server_port)) < 0) handle_error("socket_connect");
 	DBG(YELLOW"<D>"NONE" : connect to server %s:%d <%d>success.\n", server_ip, server_port, sockfd);
 
-
 	struct wechat_msg msg;
 	bzero(&msg, sizeof(msg));
 
@@ -156,20 +154,18 @@ int main(int argc, char **argv) {
 	pthread_t tid;
 	pthread_create(&tid, NULL, client_recv, (void *)&sockfd);
 
+	printf("Start messaging your idea: \n");
 	while (1) {
-		printf("Please input your content:\n");
 		char buff[1024] = {0};
-		scanf("%[^\n]", buff); getchar();
-		if (!strlen(buff)) continue;
-		else {
+		scanf("%[^\n]s", buff); getchar();
+		if (strlen(buff)) {
 			bzero(&msg, sizeof(msg));
 			msg.type = WECHAT_WALL;
 			strcpy(msg.from, name);
-			strcpy(msg.msg, buff);
+			strcpy(msg.content, buff);
 			send(sockfd, (void *)&msg, sizeof(msg), 0);
 		}
 	}
-
 	return 0;
 }
 

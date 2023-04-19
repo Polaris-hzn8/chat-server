@@ -8,6 +8,7 @@
 #include "include/head.h"
 #include "include/sub_reactor.h"
 #include "include/info.h"
+#include "include/imfunc.h"
 
 int add_to_subreactor(int epollfd, int fd) {
 	/* 将fd文件描述符 加入到从反应堆中 */
@@ -76,9 +77,9 @@ void *sub_reactor(void *arg) {
 			if (msg.type & WECHAT_WALL) {
 				/* （3-1）用户选择广播消息 */
 				DBG(L_RED"<Sub Reactor>"NONE" : a user choose to broadcast message.\n");
-				DBG("%s : %s\n", msg.from, msg.msg);
+				DBG("%s : %s\n", msg.from, msg.content);
 				msg.type = WECHAT_ACK;
-				broadcast(&msg);
+				broadcast(msg);
 			} else if (msg.type & WECHAT_MSG) {
 				/* （3-2）用户选择私发消息 */
 				/* 将该成功登录的用户fd文件描述符 加入到从反应堆中 登录后的逻辑交给从反应堆处理 */

@@ -5,12 +5,12 @@
 	> Created Time: Tue 18 Apr 2023 04:39:00 PM CST
  ************************************************************************/
 
-#include "include/head.h"
-#include "include/info.h"
+#include "include/imfunc.h"
 
-void broadcast(struct wechat_msg *msg) {
+void broadcast(struct wechat_msg msg) {
 	for (int i = 0; i < MAXUSERS; ++i) {
-		if (users[i].isOnline && strcmp(users[i].name, msg->from)) {
+		if (users[i].isOnline && strcmp(users[i].name, msg.from)) {
+			DBG(RED"<Sub Reactor-broadcast>"NONE" : %d shall be broadcasted a message <%s>.\n", users[i].fd, msg.content);
 			send(users[i].fd, (void *)&msg, sizeof(msg), 0);
 		}
 	}

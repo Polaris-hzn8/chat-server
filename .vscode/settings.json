@@ -7,7 +7,8 @@
         "read.h": "c",
         "ncurses.h": "c",
         "imfunc.h": "c",
-        "head.h": "c"
+        "head.h": "c",
+        "info.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

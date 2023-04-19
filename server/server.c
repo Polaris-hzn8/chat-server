@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
                 } else if (msg.type & WECHAT_SIGNIN) {
                     /* （3-2）用户选择登录 判断密码是否正确 验证用户是否重复登录 */
                     /* 将该成功登录的用户fd文件描述符 加入到从反应堆中 登录后的逻辑交给从反应堆处理 */
-                    DBG(RED"<Master Reactor>"NONE" : a user choose to sign in\n");
+                    DBG(RED"<Master Reactor>"NONE" : a user choose to login in\n");
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                     strcpy(users[fd].name, msg.from);
@@ -144,9 +144,11 @@ int main(int argc, char *argv[]) {
 
                     /* 利用负载均衡算法 决定将任务交给哪个从反应堆处理（注册到哪个反应堆的epoll实例中） */
                     int whichsub = msg.sex ? epollfd2 : epollfd3;
-                    add_to_subreactor(whichsub, fd);
+                    epoll_ctl(epollfd1, EPOLL_CTL_DEL, fd, NULL);//将具体的事务fd文件描述符从主反应堆中删除（事务转手）
+                    add_to_subreactor(whichsub, fd);//将具体的事务fd文件描述符加入到从反应堆中（事务转手）
                 } else {
                     /* （3-3）报文数据有误 */
+
                 }
 
 			}

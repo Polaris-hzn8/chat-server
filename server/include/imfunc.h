@@ -8,6 +8,9 @@
 #ifndef _IMFUNC_H
 #define _IMFUNC_H
 
+#include "head.h"
+#include "info.h"
 
+void broadcast(struct wechat_msg msg);
 
 #endif

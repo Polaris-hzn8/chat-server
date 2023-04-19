@@ -7,7 +7,7 @@
 
 #include "include/head.h"
 #include "include/info.h"
-#include "include/ui.h"
+#include "ui.h"
 
 int msgcnt = 0;
 
@@ -120,8 +120,8 @@ void show_msg(struct wechat_msg *msg) {
     w_gotoxy_puts(sub_msg_win, 9, msgcnt, msg->from);
     //消除颜色
     wattron(sub_msg_win, COLOR_PAIR(7));
-    w_gotoxy_puts(sub_msg_win, 10 + strlen(msg->from), msgcnt, msg->msg);
-    int tmp = (strlen(msg->msg) + 11 + strlen(msg->from)) / (MSG_WIDTH - 2) + 1;
+    w_gotoxy_puts(sub_msg_win, 10 + strlen(msg->from), msgcnt, msg->content);
+    int tmp = (strlen(msg->content) + 11 + strlen(msg->from)) / (MSG_WIDTH - 2) + 1;
     msgcnt += tmp;
     wmove(sub_input_win, 2, 1);
     wrefresh(sub_input_win);

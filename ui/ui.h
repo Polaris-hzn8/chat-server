@@ -10,6 +10,7 @@
 
 #include <ncurses.h>
 #include <locale.h>
+#include "info.h"
 
 #define MSG_WIDTH 80
 #define MSG_HEIGHT 20
@@ -29,6 +30,6 @@ void destroy_win(WINDOW *win);//走到窗口的xy位置放置
 WINDOW *create_newwin(int width, int height, int startx, int starty);//创建一个新的窗口
 void destroy_win(WINDOW *win);//销毁一个窗口
 
-void show_msg(struct ChatMsg *msg);//显示消息
+void show_msg(struct wechat_msg *msg);//显示消息
 
 #endif
