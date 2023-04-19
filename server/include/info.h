@@ -44,4 +44,6 @@ struct wechat_msg {
 
 struct wechat_user *users;
 
+int epollfd1, epollfd2, epollfd3;
+
 #endif

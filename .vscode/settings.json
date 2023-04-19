@@ -8,7 +8,10 @@
         "ncurses.h": "c",
         "imfunc.h": "c",
         "head.h": "c",
-        "info.h": "c"
+        "info.h": "c",
+        "pthread.h": "c",
+        "sub_reactor.h": "c",
+        "signal.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

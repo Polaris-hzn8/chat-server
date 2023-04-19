@@ -11,6 +11,7 @@
 #include "include/info.h"
 #include "include/sub_reactor.h"
 #include "include/thread_pool.h"
+#include "include/imfunc.h"
 
 const char *config = "./wechatd.conf";
 
@@ -55,8 +56,16 @@ int main(int argc, char *argv[]) {
 
     users = (struct wechat_user*)calloc(MAXUSERS, sizeof(struct wechat_user));
 
+    //心跳机制
+    struct itimerval itv;
+    itv.it_interval.tv_sec = 10;
+    itv.it_interval.tv_usec = 0;
+    itv.it_value.tv_sec = 10;
+    itv.it_value.tv_usec = 0;
+    setitimer(ITIMER_REAL, &itv, NULL);//每隔2s释放一个信号
+    signal(SIGALRM, heart_beat);
+
     //4.创建主反应堆 与 从反应堆
-    int epollfd1, epollfd2, epollfd3;
     if ((epollfd1 = epoll_create(1)) < 0) handle_error("epollfd_create");//主反应堆
     if ((epollfd2 = epoll_create(1)) < 0) handle_error("subefd1_create");//从反应堆1
     if ((epollfd3 = epoll_create(1)) < 0) handle_error("subefd2_create");//从反应堆2
@@ -82,8 +91,12 @@ int main(int argc, char *argv[]) {
 	DBG(YELLOW"<D> : server_listen is added to epollfd successfully.\n"NONE);
 	
 	for (;;) {
+        sigset_t st;
+        sigemptyset(&st);
+        sigaddset(&st, SIGALRM);
+
 		// 6-3 epoll_wait开始监听
-		int nfds = epoll_wait(epollfd1, events, M_MAXEVENTS, -1);//nfds epoll检测到事件发生的个数
+		int nfds = epoll_pwait(epollfd1, events, M_MAXEVENTS, -1, &st);//nfds epoll检测到事件发生的个数
 		if (nfds == -1) handle_error("epoll_wait");//可能被时钟中断 or 其他问题
 
 		for (int i = 0; i < nfds; ++i) {
@@ -138,7 +151,7 @@ int main(int argc, char *argv[]) {
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                     strcpy(users[fd].name, msg.from);
-                    users[fd].isOnline = 1;
+                    users[fd].isOnline = 5;
                     users[fd].sex = msg.sex;
                     users[fd].fd = fd;
 

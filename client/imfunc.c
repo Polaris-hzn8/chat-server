@@ -21,7 +21,15 @@ void *client_recv(void *arg) {
 			DBG(L_CYAN"<Client>"NONE" : server closed the connection.\n");
 			exit(1);
 		}
-		printf("%s : %s\n", msg.from, msg.content);
+		if (msg.type & WECHAT_HEART) {
+			printf(BLINK"receive a heart package from server.\n"NONE);
+			/* 收到心跳包对服务端进行响应 */
+			struct wechat_msg response;
+			response.type = WECHAT_ACK | WECHAT_HEART;
+			send(sockfd, &response, sizeof(response), 0);
+		}  else {
+			printf("%s : %s\n", msg.from, msg.content);
+		}
 	}
 }
 

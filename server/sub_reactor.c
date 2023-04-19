@@ -34,9 +34,13 @@ void *sub_reactor(void *arg) {
 
 	struct epoll_event events[S_MAXEVENTS], ev;
 	for (;;) {
+		sigset_t st;
+        sigemptyset(&st);
+        sigaddset(&st, SIGALRM);
+
 		//DBG(YELLOW"<in sub reactor loop : start\n"NONE);
 		// 1-2 epoll_wait开始监听
-		int nfds = epoll_wait(subepollfd, events, S_MAXEVENTS, -1);//nfds epoll检测到事件发生的个数 -1永久阻塞
+		int nfds = epoll_pwait(subepollfd, events, S_MAXEVENTS, -1, &st);//nfds epoll检测到事件发生的个数 -1永久阻塞
 		if (nfds < 0) {
 			DBG(L_RED"<Sub Reactor Err>"NONE" : a error acuurL_RED in epoll_wati of sub reactor %d.\n", subepollfd);
 			continue;
@@ -73,8 +77,14 @@ void *sub_reactor(void *arg) {
 				continue;
 			}
 
+			users[fd].isOnline = 5;
 			//（3）根据用户发送的信息进行对应的逻辑处理
-			if (msg.type & WECHAT_WALL) {
+			if (msg.type & WECHAT_ACK && msg.type & WECHAT_HEART) {
+				DBG(RED"Ack for heart_beat"NONE);
+
+
+
+			} else if (msg.type & WECHAT_WALL) {
 				/* （3-1）用户选择广播消息 */
 				DBG(L_RED"<Sub Reactor>"NONE" : a user choose to broadcast message.\n");
 				DBG("%s : %s\n", msg.from, msg.content);
