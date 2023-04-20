@@ -13,7 +13,7 @@ char *get_conf_value(const char *filename, const char *key) {
     FILE *fp;
     char *line = NULL;//获取的行
     char *sub = NULL;//找到的目标下标指针
-    ssize_t len = 0, nread = 0;
+    long unsigned int len = 0, nread = 0;
     bzero(ans, sizeof(ans));
     //1.打开配置文件
     if ((fp = fopen(filename, "r")) == NULL) return NULL;

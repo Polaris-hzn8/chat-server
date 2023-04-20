@@ -26,7 +26,6 @@
 #define M_MAXEVENTS 5
 #define S_MAXEVENTS 5
 #define MAXUSERS 1024
-#define CUR_USER_NUMBER actUser + 10;
 
 struct wechat_user {
 	char name[50];//用户名

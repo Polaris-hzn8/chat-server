@@ -170,8 +170,7 @@ int main(int argc, char **argv) {
 				//客户端选择查看当前系统在线人数
 				msg.type = WECHAT_ACT;
 				send(consockfd, (void *)&msg, sizeof(msg), 0);
-			}
-			if (buff[0] == '@') {
+			} else if (buff[0] == '@') {
 				//客户端选择私聊发送消息
 				if (!strstr(buff, " ")) {
 					/* 简单的私聊消息命令格式检查 */

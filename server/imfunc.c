@@ -10,7 +10,7 @@
 void heart_beat(int signum) {
 	struct wechat_msg msg;
 	msg.type = WECHAT_HEART;
-	for (int i = 0; i < CUR_USER_NUMBER; ++i) {
+	for (int i = 0; i < actUser + 10; ++i) {
 		if (users[i].isOnline) {
 			/* 为所有在线的用户发送心跳包 */
 			send(users[i].fd, (void *)&msg, sizeof(msg), 0);
@@ -20,14 +20,14 @@ void heart_beat(int signum) {
 				int whichsub = msg.sex ? epollfd2 : epollfd3;
 				epoll_ctl(whichsub, EPOLL_CTL_DEL, users[i].fd, NULL);
 				close(users[i].fd);
-				DBG(RED"<Server Heartbeat>"NONE" %s is removed from sub reactor %d , because of heart beat no response.\n", users[i].fd, whichsub);
+				DBG(RED"<Server Heartbeat>"NONE" %d is removed from sub reactor %d , because of heart beat no response.\n", users[i].fd, whichsub);
 			}
 		}
 	}
 }
 
 void broadcast(struct wechat_msg *msg) {
-	for (int i = 0; i < CUR_USER_NUMBER; ++i) {
+	for (int i = 0; i < actUser + 10; ++i) {
 		if (users[i].isOnline && strcmp(users[i].name, msg->from)) {
 			DBG(RED"<Sub Reactor-broadcast>"NONE" : %d shall be broadcasted a message <%s>.\n", users[i].fd, msg->content);
 			send(users[i].fd, (void *)msg, sizeof(*msg), 0);
@@ -36,7 +36,7 @@ void broadcast(struct wechat_msg *msg) {
 }
 
 int secret(struct wechat_msg *msg) {
-	for (int i = 0; i < CUR_USER_NUMBER; ++i) {
+	for (int i = 0; i <= actUser + 10; ++i) {
 		if (strcmp(users[i].name, msg->to) == 0) {
 			if (users[i].isOnline) {
 				DBG(RED"<Sub Reactor-secret>"NONE" : %d shall be secret a message <%s>.\n", users[i].fd, msg->content);
