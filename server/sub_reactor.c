@@ -80,16 +80,13 @@ void *sub_reactor(void *arg) {
 			users[fd].isOnline = 5;
 			//（3）根据用户发送的信息进行对应的逻辑处理
 			if (msg.type & WECHAT_ACK && msg.type & WECHAT_HEART) {
-				DBG(RED"Ack for heart_beat"NONE);
-
-
-
+				DBG(RED"Ack for heart_beat\n"NONE);
 			} else if (msg.type & WECHAT_WALL) {
 				/* （3-1）用户选择广播消息 */
 				DBG(L_RED"<Sub Reactor>"NONE" : a user choose to broadcast message.\n");
 				DBG("%s : %s\n", msg.from, msg.content);
 				msg.type = WECHAT_ACK;
-				broadcast(msg);
+				broadcast(&msg);
 			} else if (msg.type & WECHAT_MSG) {
 				/* （3-2）用户选择私发消息 */
 				/* 将该成功登录的用户fd文件描述符 加入到从反应堆中 登录后的逻辑交给从反应堆处理 */

@@ -12,6 +12,6 @@
 #include "info.h"
 
 void heart_beat(int signum);
-void broadcast(struct wechat_msg msg);
+void broadcast(struct wechat_msg *msg);
 
 #endif

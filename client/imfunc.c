@@ -27,7 +27,9 @@ void *client_recv(void *arg) {
 			struct wechat_msg response;
 			response.type = WECHAT_ACK | WECHAT_HEART;
 			send(sockfd, &response, sizeof(response), 0);
-		}  else {
+		}  else if (msg.type & WECHAT_SYS) {
+			printf(RED"SysInfo : %s\n"NONE, msg.content);
+		} else {
 			printf("%s : %s\n", msg.from, msg.content);
 		}
 	}

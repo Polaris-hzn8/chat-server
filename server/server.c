@@ -155,10 +155,16 @@ int main(int argc, char *argv[]) {
                     users[fd].sex = msg.sex;
                     users[fd].fd = fd;
 
+                    /* 新用户上线向其他用户广播消息 */
+                    msg.type = WECHAT_SYS;
+                    sprintf(msg.content, "您的好友<%s>进入了聊天室，快和他打个招呼吧!\n", msg.from);
+
                     /* 利用负载均衡算法 决定将任务交给哪个从反应堆处理（注册到哪个反应堆的epoll实例中） */
                     int whichsub = msg.sex ? epollfd2 : epollfd3;
                     epoll_ctl(epollfd1, EPOLL_CTL_DEL, fd, NULL);//将具体的事务fd文件描述符从主反应堆中删除（事务转手）
                     add_to_subreactor(whichsub, fd);//将具体的事务fd文件描述符加入到从反应堆中（事务转手）
+
+                    broadcast(&msg);
                 } else {
                     /* （3-3）报文数据有误 */
 
