@@ -13,5 +13,6 @@
 
 void heart_beat(int signum);
 void broadcast(struct wechat_msg *msg);
+int secret(struct wechat_msg *msg);
 
 #endif

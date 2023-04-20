@@ -8,10 +8,9 @@
 #include "include/imfunc.h"
 
 void heart_beat(int signum) {
-	DBG(GREEN"SIGALRM\n"NONE);
 	struct wechat_msg msg;
 	msg.type = WECHAT_HEART;
-	for (int i = 0; i < MAXUSERS; ++i) {
+	for (int i = 0; i < CUR_USER_NUMBER; ++i) {
 		if (users[i].isOnline) {
 			/* 为所有在线的用户发送心跳包 */
 			send(users[i].fd, (void *)&msg, sizeof(msg), 0);
@@ -28,11 +27,26 @@ void heart_beat(int signum) {
 }
 
 void broadcast(struct wechat_msg *msg) {
-	for (int i = 0; i < MAXUSERS; ++i) {
+	for (int i = 0; i < CUR_USER_NUMBER; ++i) {
 		if (users[i].isOnline && strcmp(users[i].name, msg->from)) {
 			DBG(RED"<Sub Reactor-broadcast>"NONE" : %d shall be broadcasted a message <%s>.\n", users[i].fd, msg->content);
 			send(users[i].fd, (void *)msg, sizeof(*msg), 0);
 		}
 	}
 }
+
+int secret(struct wechat_msg *msg) {
+	for (int i = 0; i < CUR_USER_NUMBER; ++i) {
+		if (strcmp(users[i].name, msg->to) == 0) {
+			if (users[i].isOnline) {
+				DBG(RED"<Sub Reactor-secret>"NONE" : %d shall be secret a message <%s>.\n", users[i].fd, msg->content);
+				send(users[i].fd, (void *)msg, sizeof(*msg), 0);
+				return 1; 
+			}
+		}
+	}
+	return 0;
+}
+
+
 

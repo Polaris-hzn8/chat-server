@@ -9,6 +9,7 @@
 #include "include/sub_reactor.h"
 #include "include/info.h"
 #include "include/imfunc.h"
+#include "include/socket.h"
 
 int add_to_subreactor(int epollfd, int fd) {
 	/* 将fd文件描述符 加入到从反应堆中 */
@@ -28,11 +29,11 @@ void *sub_reactor(void *arg) {
 	
 	//从反应堆主逻辑处理开始
 	//1.利用反应堆模式epoll进行事件分发
-	int sockfd;
+	//int sockfd;
 	// 1-1 epoll_create
 	//if ((epollfd = epoll_create(1)) < 0) handle_error("epoll_create");//文件描述符被占用完就可能会出错
 
-	struct epoll_event events[S_MAXEVENTS], ev;
+	struct epoll_event events[S_MAXEVENTS];
 	for (;;) {
 		sigset_t st;
         sigemptyset(&st);
@@ -73,32 +74,50 @@ void *sub_reactor(void *arg) {
 			}
 			if (ret != sizeof(msg)) {
 				/* 文件接收到的大小有问题 */
-				DBG(L_RED"<Sub Reactor>"NONE" : msg size err! ret:%d sizeof(msg):%d\n", ret, sizeof(msg));
+				DBG(L_RED"<Sub Reactor>"NONE" : msg size err! ret: %d sizeof(msg): %ld\n", ret, sizeof(msg));
 				continue;
 			}
 
 			users[fd].isOnline = 5;
 			//（3）根据用户发送的信息进行对应的逻辑处理
 			if (msg.type & WECHAT_ACK && msg.type & WECHAT_HEART) {
+				/* （3-1）客户端发送的心跳包确认消息 */
 				DBG(RED"Ack for heart_beat\n"NONE);
+			} else if (msg.type & WECHAT_FIN) {
+				/* （3-2）用户选择断开连接 用户下线 */
+				msg.type = WECHAT_SYS;
+				sprintf(msg.content, "你的好友 %s 下线了.", msg.from);
+				broadcast(&msg);
+				epoll_ctl(subepollfd, EPOLL_CTL_DEL, fd, NULL);
+				users[fd].isOnline = 0;
+				close(fd);
+				actUser--;
+				DBG(L_RED"<Sub Reactor>"NONE" : current active user number: %d.\n", actUser);
 			} else if (msg.type & WECHAT_WALL) {
-				/* （3-1）用户选择广播消息 */
+				/* （3-3）用户选择广播消息 */
 				DBG(L_RED"<Sub Reactor>"NONE" : a user choose to broadcast message.\n");
 				DBG("%s : %s\n", msg.from, msg.content);
 				msg.type = WECHAT_ACK;
 				broadcast(&msg);
 			} else if (msg.type & WECHAT_MSG) {
-				/* （3-2）用户选择私发消息 */
-				/* 将该成功登录的用户fd文件描述符 加入到从反应堆中 登录后的逻辑交给从反应堆处理 */
-				DBG(L_RED"<Server>"NONE" : a user choose to sign in\n");
+				/* （3-4）用户选择私发消息 */
+				DBG(L_RED"<Sub Reactor>"NONE" : a user choose to srcret message.\n");
 				msg.type = WECHAT_ACK;
+				int ret = secret(&msg);
+				if (!ret) {
+					/* 用户不在线 或 用户不存在 */
+					msg.type = WECHAT_SYS;
+					sprintf(msg.content, "用户 %s 已下线, 暂时无法发送私聊消息. ", msg.to);
+					send(fd, (void *)&msg, sizeof(msg), 0);
+				}
+			} else if (msg.type & WECHAT_ACT) {
+				/*（3-5）用户选择查询当前在线人数 */
+				DBG(L_RED"<Sub Reactor>"NONE" : a user choose to query active user.\n");
+				msg.type = WECHAT_ACT;
+				msg.actUser = actUser;
 				send(fd, (void *)&msg, sizeof(msg), 0);
-				strcpy(users[fd].name, msg.from);
-				users[fd].isOnline = 1;
-				users[fd].sex = msg.sex;
-				users[fd].fd = fd;
 			} else {
-				/* （3-3）报文数据有误 */
+				/*（3-6）报文数据有误 */
 			}
 
 			// if (events[i].events & EPOLLIN) {

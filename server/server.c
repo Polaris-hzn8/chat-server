@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
 
     users = (struct wechat_user*)calloc(MAXUSERS, sizeof(struct wechat_user));
 
-    //心跳机制
+    // 心跳机制
     struct itimerval itv;
     itv.it_interval.tv_sec = 10;
     itv.it_interval.tv_usec = 0;
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     
     
     //6.利用反应堆模式epoll进行事件分发
-	int sockfd;
+	int consockfd;
 	// 6-1 epoll_create
 	//if ((epollfd = epoll_create(1)) < 0) handle_error("epoll_create");//文件描述符被占用完就可能会出错
 
@@ -106,13 +106,13 @@ int main(int argc, char *argv[]) {
 				/* 返回的fd为server_listen可读 表示已经有客户端进行3次握手了 */
 				/* events[i].events & EPOLLIN 表示至少有一个可读 */
 				// 6-3-2将accept到的文件描述符注册到epoll实例中，实现文件监听
-				if ((sockfd = accept(server_listen, NULL, NULL)) < 0) handle_error("accept");
+				if ((consockfd = accept(server_listen, NULL, NULL)) < 0) handle_error("accept");
 				//如果是实际应用情况，如果出现错误应该想办法处理错误，并恢复实际业务
 				//clients[sockfd] = sockfd;//文件描述符作为数组下标 存储新出现的conn_socket文件描述符
-				ev.data.fd = sockfd;
+				ev.data.fd = consockfd;
 				ev.events = EPOLLIN;//设置为边缘触发模式
-				make_nonblock(sockfd);
-				if (epoll_ctl(epollfd1, EPOLL_CTL_ADD, sockfd, &ev) < 0) handle_error("epoll_ctl");
+				make_nonblock(consockfd);
+				if (epoll_ctl(epollfd1, EPOLL_CTL_ADD, consockfd, &ev) < 0) handle_error("epoll_ctl");
 			} else {
 				/* 返回的fd不是server_listen且可读 */
                 /* 接收用户发来的数据 验证 以及操作 */
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
                 }
                 if (ret != sizeof(msg)) {
                     /* 文件接收到的大小有问题 */
-                    DBG(RED"<Master Reactor>"NONE" : msg size err! ret:%d sizeof(msg):%d\n", ret, sizeof(msg));
+                    DBG(RED"<Master Reactor>"NONE" : msg size err! ret: %d sizeof(msg): %ld\n", ret, sizeof(msg));
                     continue;
                 }
 
@@ -145,9 +145,12 @@ int main(int argc, char *argv[]) {
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                 } else if (msg.type & WECHAT_SIGNIN) {
-                    /* （3-2）用户选择登录 判断密码是否正确 验证用户是否重复登录 */
+                    /* （3-2）用户选择登录 用户上线 判断密码是否正确 验证用户是否重复登录 */
                     /* 将该成功登录的用户fd文件描述符 加入到从反应堆中 登录后的逻辑交给从反应堆处理 */
                     DBG(RED"<Master Reactor>"NONE" : a user choose to login in\n");
+                    actUser++;
+                    DBG(L_RED"<Sub Reactor>"NONE" : current active user number: %d.\n", actUser);
+
                     msg.type = WECHAT_ACK;
                     send(fd, (void *)&msg, sizeof(msg), 0);
                     strcpy(users[fd].name, msg.from);
@@ -155,15 +158,14 @@ int main(int argc, char *argv[]) {
                     users[fd].sex = msg.sex;
                     users[fd].fd = fd;
 
-                    /* 新用户上线向其他用户广播消息 */
-                    msg.type = WECHAT_SYS;
-                    sprintf(msg.content, "您的好友<%s>进入了聊天室，快和他打个招呼吧!\n", msg.from);
-
                     /* 利用负载均衡算法 决定将任务交给哪个从反应堆处理（注册到哪个反应堆的epoll实例中） */
                     int whichsub = msg.sex ? epollfd2 : epollfd3;
                     epoll_ctl(epollfd1, EPOLL_CTL_DEL, fd, NULL);//将具体的事务fd文件描述符从主反应堆中删除（事务转手）
                     add_to_subreactor(whichsub, fd);//将具体的事务fd文件描述符加入到从反应堆中（事务转手）
 
+                    /* 新用户上线向其他用户广播消息 */
+                    msg.type = WECHAT_SYS;
+                    sprintf(msg.content, "您的好友 %s 进入了聊天室，快和他打个招呼吧!\n", msg.from);
                     broadcast(&msg);
                 } else {
                     /* （3-3）报文数据有误 */

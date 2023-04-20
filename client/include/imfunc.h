@@ -8,6 +8,7 @@
 #ifndef _IMFUNC_H
 #define _IMFUNC_H
 
+void logout(int signum);
 void *client_recv(void *arg);
 
 #endif

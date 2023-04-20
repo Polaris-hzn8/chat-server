@@ -21,6 +21,7 @@
 #define WECHAT_SYS 0x80//系统消息
 #define WECHAT_WALL 0x100//广播消息
 #define WECHAT_MSG 0x200//私发消息
+#define WECHAT_ACT 0x400//查询在线活跃人数
 
 #define M_MAXEVENTS 5
 #define S_MAXEVENTS 5
@@ -40,6 +41,9 @@ struct wechat_msg {
 	char to[50];
 	char content[1024];
 	int sex;
+	int actUser;
 };
+
+struct wechat_user temp;
 
 #endif
