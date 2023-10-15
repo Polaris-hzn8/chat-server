@@ -8,15 +8,15 @@
 - 客户端：ncurse库实现简单的终端界面，
 - 主要功能：
 
-![image-20230424152550468](assets/image-20230424152550468.png)
+![image-20230424152550468](doc/assets/image-20230424152550468.png)
 
 - 主从反应堆结构：
 
-![image-20230420150302255](assets/image-20230420150302255.png)
+![image-20230420150302255](doc/assets/image-20230420150302255.png)
 
 ```cpp
 .
-├── assets
+├── doc/assets
 │   ├── image-20230403154140732.png
 │   └── wechat.xmind
 ├── client
