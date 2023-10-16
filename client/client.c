@@ -11,14 +11,15 @@
 #include "include/read.h"
 #include "include/imfunc.h"
 
-const char *config = "./wechat.conf";
+const char *conf_file = "./config.conf";
 
 #define handle_error(msg) \
 	do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 int main(int argc, char **argv) {
+	// 1.解析命令行参数
 	int opt;
-	int mode = 0;//客户端启动模式 0 表示注册 1 表示登录
+	int mode = 0; // 0 表示注册 1 表示登录
 	int sex = -1;
 	int server_port = 0;
 	char server_ip[20] = {0};
@@ -46,16 +47,16 @@ int main(int argc, char **argv) {
 		}
 	}
 
-    //1.判断config文件是否存在
-    if (access(config, R_OK)) {
+    // 2.判断config文件是否存在
+    if (access(conf_file, R_OK)) {
         fprintf(stderr, RED"<Error>"NONE" : config file don't exist!\n");
         exit(1);
     }
 
-    //2.若在选项中没有指定参数 则读取配置文件获取配置参数
+    // 3.若在选项中没有指定参数 则读取配置文件获取配置参数
     if (!server_port) {
         char *info;
-        if ((info = get_conf_value(config, "SERVER_PORT")) == NULL) {
+        if ((info = get_conf_value(conf_file, "SERVER_PORT")) == NULL) {
             fprintf(stderr, RED"<Error>"NONE" this setting info is not set in the config file!\n");
             exit(1);
         }
@@ -63,7 +64,7 @@ int main(int argc, char **argv) {
     }
 	if (!strlen(server_ip)) {
         char *info;
-        if ((info = get_conf_value(config, "SERVER_IP")) == NULL) {
+        if ((info = get_conf_value(conf_file, "SERVER_IP")) == NULL) {
             fprintf(stderr, RED"<Error>"NONE" this setting info is not set in the config file!\n");
             exit(1);
         }
@@ -71,7 +72,7 @@ int main(int argc, char **argv) {
     }
 	if (!strlen(name)) {
         char *info;
-        if ((info = get_conf_value(config, "NAME")) == NULL) {
+        if ((info = get_conf_value(conf_file, "NAME")) == NULL) {
             fprintf(stderr, RED"<Error>"NONE" this setting info is not set in the config file!\n");
             exit(1);
         }
@@ -79,7 +80,7 @@ int main(int argc, char **argv) {
     }
 	if (sex == -1) {
         char *info;
-        if ((info = get_conf_value(config, "SEX")) == NULL) {
+        if ((info = get_conf_value(conf_file, "SEX")) == NULL) {
             fprintf(stderr, RED"<Error>"NONE" this setting info is not set in the config file!\n");
             exit(1);
         }
@@ -91,74 +92,78 @@ int main(int argc, char **argv) {
 	DBG(YELLOW"name=%s\n"NONE, name);
 	DBG(YELLOW"sex=%d\n"NONE, sex);
 
-	//3.连接服务端
-	int consockfd;
-	if ((consockfd = socket_connect(server_ip, server_port)) < 0) handle_error("socket_connect");
+	// 4.连接服务端
+	int con_sockfd;
+	if ((con_sockfd = socket_connect(server_ip, server_port)) < 0) handle_error("socket_connect");
 	DBG(YELLOW"<D>"NONE" : connect to server %s:%d <%d>success.\n", server_ip, server_port, consockfd);
 
-
 	// 好友logout提示
-	temp.fd = consockfd;
+	temp.fd = con_sockfd;
 	strcpy(temp.name, name);
 	signal(SIGINT, logout);
 
-
+	// 5.将注册与登录信息发送给客户端 0 表示注册 1 表示登录
 	struct wechat_msg msg;
-	//4.将注册与登录信息发送给客户端
 	bzero(&msg, sizeof(msg));
 	strcpy(msg.from, name);
 	msg.sex = sex;
 	if (mode == 0) {
-		/* user signup */
-		msg.type = WECHAT_SIGNUP;
+		msg.cid = WECHAT_SIGNUP;	// user signup
 	} else {
-		/* user signin */
-		msg.type = WECHAT_SIGNIN;
+		msg.cid = WECHAT_SIGNIN;	// user signin
 	}
-	send(consockfd, (void *)&msg, sizeof(msg), 0);
+	send(con_sockfd, (void *)&msg, sizeof(msg), 0);
 
-	//5.利用select处理客户端发送登录or注册请求 等待2秒看服务端是否有回复
-	//5-1 发送的登录或注册消息在2秒内没有得到服务器响应
+	// 6.利用select函数处理客户端与服务端之间的通信 发送登录or注册请求 等待2秒看服务端是否有回复
 	fd_set rfds;
-	FD_ZERO(&rfds);
-	FD_SET(consockfd, &rfds);
-	struct timeval tv;
+	FD_ZERO(&rfds);					// 初始化文件描述符集合
+	FD_SET(con_sockfd, &rfds);		// 使用FD_SET函数将conn_socket添加到rfds集合中
+	struct timeval tv;				// 使用 struct timeval 结构体 tv 来设置超时时间，2秒后 select 将返回
 	tv.tv_sec = 2;
 	tv.tv_usec = 0;
-	if (select(consockfd + 1, &rfds, NULL, NULL, &tv) <= 0) {
+
+	int ret;
+	// 6.1 调用select函数监视con_sockfd是否有可读事件
+	ret = select(con_sockfd + 1, &rfds, NULL, NULL, &tv);
+	// 6.2 返回值小于等于0 发送的登录或注册消息在2秒内没有得到服务器响应
+	if (ret <= 0) {
 		fprintf(stderr, RED"<Err>"NONE" : Server no response.\n");
 		exit(1);
 	}
 
-	//5-2 发送的登录或注册消息在2秒内得到了服务器响应 select返回值大于0得到了响应 开始接受服务端发送的消息
+	// 6.3 发送的登录或注册消息在2秒内得到了服务器响应 select返回值大于0得到了响应 开始接受服务端发送的消息
 	bzero(&msg, sizeof(msg));
-	int ret = recv(consockfd, (void *)&msg, sizeof(msg), 0);
+	ret = recv(con_sockfd, (void *)&msg, sizeof(msg), 0);
 	if (ret <= 0) {
-		/* 服务端关闭 ret == 0 ; recv出错 ret < 0 */
+		// 服务端关闭 ret == 0 ; recv出错 ret < 0
 		fprintf(stderr, RED"<Err>"NONE" : server loss connection.\n");
 		exit(1);
 	}
-	if (msg.type & WECHAT_ACK) {
-		/* msg.type == WECHAT_ACK */
+
+	// 6.4 服务器返回请求成功响应
+	if (msg.cid & WECHAT_ACK) {
+		// msg.type == WECHAT_ACK
 		DBG(GREEN"<Success>"NONE" : server return a success.\n");
 		if (!mode) {
-			/* 进入注册逻辑 */
-			printf(GREEN"please login after this.\n"NONE);
+			// 进入注册逻辑
+			printf(GREEN"user choose to register for a account.\n"NONE);
 			exit(0);
+		} else {
+			// 进入登录逻辑
+			printf(GREEN"user choose to login.\n"NONE);
 		}
 	} else {
-		/* msg.type == WECHAT_FIN */
+		// msg.type == WECHAT_FIN
 		DBG(RED"<Failure>"NONE" : server return a failure.\n");
-		close(consockfd);
+		close(con_sockfd);
 		exit(1);
 	}
 
-	//6.进入聊天室的主逻辑：接收消息 与 发送消息
-	/* 有必要将接受消息 与 发送消息的逻辑分离 否则在输入消息的过程中就会被接受到的消息打断 */
-	/* 创建另外一个线程用于循环接收消息 一旦接受到消息就打印输出在屏幕上 */
-	/* 主级进程用于发送消息 */
+	// 7.用户成功登录后 进入聊天室的主逻辑：接收消息 与 发送消息
+	// 有必要将接受消息 与 发送消息的逻辑分离 否则在输入消息的过程中就会被接受到的消息打断
+	// 创建另外一个线程用于循环接收消息 一旦接受到消息就打印输出在屏幕上 而主级进程用于发送消息
 	pthread_t tid;
-	pthread_create(&tid, NULL, client_recv, (void *)&consockfd);
+	pthread_create(&tid, NULL, client_recv, (void *)&con_sockfd);
 
 	printf("Start messaging your idea: \n");
 	while (1) {
@@ -167,30 +172,30 @@ int main(int argc, char **argv) {
 		if (strlen(buff)) {
 			bzero(&msg, sizeof(msg));
 			if (strlen(buff) == 1 && buff[0] == '#') {
-				//客户端选择查看当前系统在线人数
-				msg.type = WECHAT_ACT;
-				send(consockfd, (void *)&msg, sizeof(msg), 0);
+				// 客户端选择查看当前系统在线人数
+				msg.cid = WECHAT_ACT;
+				send(con_sockfd, (void *)&msg, sizeof(msg), 0);
 			} else if (buff[0] == '@') {
-				//客户端选择私聊发送消息
+				// 客户端选择私聊发送消息
 				if (!strstr(buff, " ")) {
-					/* 简单的私聊消息命令格式检查 */
+					// 简单的私聊消息命令格式检查
 					fprintf(stderr, "Usage : @[username] [message]\n");
 					continue;
 				}
-				msg.type = WECHAT_MSG;
+				msg.cid = WECHAT_MSG;
 				//将命令中消息发送目标的名字 拷贝到msg.to中
 				strncpy(msg.to, buff + 1, strchr(buff, ' ') - buff - 1);
 				//DBG(RED"<target>"NONE" : target name: %s\n", msg.to);
 				strcpy(msg.from, name);
 				strncpy(msg.content, buff + strlen(msg.to) + 2, strlen(buff) - strlen(msg.to) - 2);
 				//DBG(RED"<target>"NONE" : message content: %s\n", msg.content);
-				send(consockfd, (void *)&msg, sizeof(msg), 0);
+				send(con_sockfd, (void *)&msg, sizeof(msg), 0);
 			} else {
 				//客户端选择公聊发送消息
-				msg.type = WECHAT_WALL;
+				msg.cid = WECHAT_WALL;
 				strcpy(msg.from, name);
 				strcpy(msg.content, buff);
-				send(consockfd, (void *)&msg, sizeof(msg), 0);
+				send(con_sockfd, (void *)&msg, sizeof(msg), 0);
 			}
 		}
 	}
