@@ -14,6 +14,10 @@
 
 ![image-20230420150302255](doc/assets/image-20230420150302255.png)
 
+- 聊天测试：
+
+![image-20231016121130093](assets/image-20231016121130093.png)
+
 ```cpp
 .
 ├── doc/assets
