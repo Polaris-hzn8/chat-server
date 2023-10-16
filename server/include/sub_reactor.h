@@ -9,6 +9,6 @@
 #define _WECHAT_H
 
 int add_to_subreactor(int epollfd, int fd);
-void *sub_reactor(void *arg);
+void *sub_reactor_task(void *arg);
 
 #endif

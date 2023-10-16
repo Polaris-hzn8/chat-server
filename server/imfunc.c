@@ -9,14 +9,14 @@
 
 void heart_beat(int signum) {
 	struct wechat_msg msg;
-	msg.type = WECHAT_HEART;
+	msg.cid = WECHAT_HEART;
 	for (int i = 0; i < actUser + 10; ++i) {
 		if (users[i].isOnline) {
-			/* 为所有在线的用户发送心跳包 */
+			// 为所有在线的用户发送心跳包
 			send(users[i].fd, (void *)&msg, sizeof(msg), 0);
 			users[i].isOnline--;
 			if (users[i].isOnline == 0) {
-				/* 5次心跳包都没有回应 则将用户的文件描述符移出从反应堆（用户下线） */
+				// 5次心跳包都没有回应 则将用户的文件描述符移出从反应堆（用户下线）
 				int whichsub = msg.sex ? epollfd2 : epollfd3;
 				epoll_ctl(whichsub, EPOLL_CTL_DEL, users[i].fd, NULL);
 				close(users[i].fd);

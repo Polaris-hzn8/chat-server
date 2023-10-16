@@ -8,7 +8,7 @@
 #ifndef _PREREAD_H
 #define _PREREAD_H
 
-char ans[512];//return value of get_conf_value
+char conf_value[512];//return value of get_conf_value
 char *get_conf_value(const char *filename, const char *key);
 
 #endif
