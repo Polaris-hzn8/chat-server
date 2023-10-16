@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
                     // 用户登出 并关闭为其服务的文件描述符fd
                     epoll_ctl(epollfd1, EPOLL_CTL_DEL, ifd, NULL);
                     close(ifd);
-                    DBG(RED"<Master Reactor>"NONE" : connection of %d on %d is closed.\n", fd, epollfd1);
+                    DBG(RED"<Master Reactor>"NONE" : connection of %d on %d is closed.\n", ifd, epollfd1);
                     continue;
                 }
 

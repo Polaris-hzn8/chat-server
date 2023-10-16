@@ -18,7 +18,7 @@ int add_to_subreactor(int epollfd, int ifd) {
 	ev.events = EPOLLIN | EPOLLET;//使用边缘模式
 	make_nonblock(ifd);
 	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, ifd, &ev) == -1) return -1;
-	DBG(L_RED"<Sub Reactor>"NONE" : fd<%d> was added in sub reactor<%d>. (in add_to_subreactor)\n", fd, epollfd);
+	DBG(L_RED"<Sub Reactor>"NONE" : fd<%d> was added in sub reactor<%d>. (in add_to_subreactor)\n", ifd, epollfd);
 	return 0;
 }
 
@@ -64,7 +64,7 @@ void *sub_reactor_task(void *arg) {
 				epoll_ctl(subepollfd, EPOLL_CTL_DEL, ifd, NULL);
 				users[ifd].isOnline = 0;
 				close(ifd);
-				DBG(L_RED"<Sub Reactor>"NONE" : client connection of %d on %d is closed.\n", fd, subepollfd);
+				DBG(L_RED"<Sub Reactor>"NONE" : client connection of %d on %d is closed.\n", ifd, subepollfd);
 				continue;
 			}
 
